@@ -86,3 +86,99 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Mermaid specific styles */
+@layer components {
+  .mermaid svg {
+    max-width: 100% !important;
+    height: auto !important; /* Maintain aspect ratio */
+    font-family: 'Inter', sans-serif !important; /* Ensure font consistency */
+  }
+
+  /* Default node styling */
+  .mermaid .node rect,
+  .mermaid .node circle,
+  .mermaid .node ellipse,
+  .mermaid .node polygon,
+  .mermaid .node path {
+    fill: hsl(var(--card)) !important;
+    stroke: hsl(var(--border)) !important;
+    stroke-width: 2px !important;
+  }
+  
+  .mermaid .node .label, .mermaid .node text {
+    fill: hsl(var(--card-foreground)) !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+  }
+
+  /* Specific node types defined in generateMermaidDiagram */
+  .mermaid .node.databaseNode rect, .mermaid .node.databaseNode path { /* Mermaid might use path for cylinders */
+    fill: hsl(var(--accent)) !important;
+    stroke: hsl(var(--accent-foreground)) !important;
+  }
+  .mermaid .node.databaseNode .label, .mermaid .node.databaseNode text {
+    fill: hsl(var(--accent-foreground)) !important;
+  }
+
+  .mermaid .node.serverNode rect {
+    fill: hsl(var(--primary)) !important;
+    stroke: hsl(var(--primary-foreground)) !important;
+  }
+  .mermaid .node.serverNode .label, .mermaid .node.serverNode text {
+    fill: hsl(var(--primary-foreground)) !important;
+  }
+  
+  .mermaid .node.frontendNode rect {
+    fill: hsl(var(--secondary)) !important;
+    stroke: hsl(var(--primary)) !important;
+  }
+  .mermaid .node.frontendNode .label, .mermaid .node.frontendNode text {
+    fill: hsl(var(--secondary-foreground)) !important;
+  }
+
+  .mermaid .node.gatewayNode polygon { /* Rhombus might be polygon */
+    fill: hsl(var(--card)) !important;
+    stroke: hsl(var(--accent)) !important;
+  }
+   .mermaid .node.gatewayNode .label, .mermaid .node.gatewayNode text {
+    fill: hsl(var(--card-foreground)) !important;
+  }
+
+  .mermaid .node.externalNode rect {
+     fill: hsl(var(--muted)) !important;
+     stroke: hsl(var(--border)) !important;
+  }
+  .mermaid .node.externalNode .label, .mermaid .node.externalNode text {
+    fill: hsl(var(--muted-foreground)) !important;
+  }
+
+
+  /* Edge/Link styling */
+  .mermaid .edgePath path {
+    stroke: hsl(var(--foreground)) !important;
+    stroke-width: 2px !important;
+  }
+  .mermaid .edgePath.thickEdge path {
+    stroke: hsl(var(--primary)) !important;
+    stroke-width: 3px !important;
+  }
+  .mermaid .arrowheadPath {
+    fill: hsl(var(--foreground)) !important;
+  }
+   .mermaid .edgePath.thickEdge .arrowheadPath {
+    fill: hsl(var(--primary)) !important;
+  }
+
+  .mermaid .edgeLabel {
+    fill: hsl(var(--foreground)) !important;
+    background-color: hsl(var(--background)) !important; /* To make label readable over lines */
+    padding: 0 2px;
+  }
+
+  /* Ensure diagram container allows for responsive SVG */
+  #mermaid-diagram-container > svg {
+    display: block; /* remove extra space below inline svg */
+    margin: auto; /* center svg */
+  }
+}
