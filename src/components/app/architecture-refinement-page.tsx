@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { FormEvent } from "react";
@@ -38,28 +39,17 @@ export function ArchitectureRefinementPage() {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'loose',
-      theme: 'neutral', // Base theme, specific styling handled by classDef
-      // Mermaid themeVariables can be used if we want to sync with CSS vars,
-      // but classDef offers more direct control for specific node types.
-      // themeVariables: {
-      //   primaryColor: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
-      //   mainBkg: getComputedStyle(document.documentElement).getPropertyValue('--card').trim(),
-      //   textColor: getComputedStyle(document.documentElement).getPropertyValue('--card-foreground').trim(),
-      // }
+      theme: 'neutral',
     });
   }, []);
 
   const generateMermaidDiagram = useCallback((architectureText: string): string => {
     if (!architectureText?.trim()) return "";
 
-    // Sanitize node IDs and text for Mermaid
     const sanitizeNodeId = (text: string) => text.replace(/[^a-zA-Z0-9_]/g, '_') || 'node';
     const sanitizeNodeText = (text: string) => {
-      // Escape characters that have special meaning in Mermaid node text (e.g., quotes, markdown)
-      // Basic escaping for quotes. More complex text might need a robust Markdown escaper.
       return text.replace(/"/g, '&quot;').replace(/#/g, '&num;');
     };
-
 
     const components = architectureText.split(/,|\n/)
                                    .map(line => line.trim())
@@ -72,10 +62,8 @@ export function ArchitectureRefinementPage() {
 
     components.forEach((component, index) => {
       const baseId = sanitizeNodeId(component);
-      // Ensure unique IDs even if sanitized names are the same
       const uniqueId = `${baseId}_${index}`; 
       nodeIds.push(uniqueId);
-      // Use [""] for text to allow more characters and apply card class
       mermaidString += `  ${uniqueId}["${sanitizeNodeText(component)}"]:::card\n`;
     });
 
@@ -84,16 +72,9 @@ export function ArchitectureRefinementPage() {
       mermaidString += `  ${nodeIds[i]} --> ${nodeIds[i + 1]}\n`;
     }
 
-    // Define the 'card' class styling
-    // Using HSL values from globals.css (approximated to hex for mermaid)
-    // --card: 0 0% 100% (#FFFFFF)
-    // --card-foreground: 240 10% 3.9% (#262626 or similar dark gray)
-    // --border: 240 5.9% 90% (#E5E7EB)
-    // --primary for accents if needed: 180 100% 25.1% (#008080)
     mermaidString += `
-  classDef card fill:#FFFFFF,stroke:#D1D5DB,color:#1F2937,stroke-width:1.5px,rx:8px,ry:8px,font-weight:500,padding:10px 15px;
-  %% Potentially different styling for links if needed
-  %% linkStyle default stroke:#333,stroke-width:2px;
+  classDef card fill:hsl(var(--card)),stroke:hsl(var(--border)),color:hsl(var(--card-foreground)),stroke-width:1.5px,rx:var(--radius),ry:var(--radius),font-weight:500,padding:10px 15px;
+  linkStyle default stroke:hsl(var(--foreground)),stroke-width:1.5px;
 `;
     return mermaidString;
   }, []);
@@ -184,11 +165,8 @@ export function ArchitectureRefinementPage() {
     if (mermaidDiagram && mermaidContainerRef.current) {
       const renderMermaid = async () => {
         try {
-          // Clear previous diagram
           mermaidContainerRef.current!.innerHTML = '';
-          // Insert the new diagram definition directly for Mermaid to process
-          // Using mermaid.render to get SVG and then inserting it.
-          const { svg } = await mermaid.render('mermaid-graph', mermaidDiagram);
+          const { svg } = await mermaid.render(`mermaid-graph-${Date.now()}`, mermaidDiagram); // Use unique ID for each render
           if (mermaidContainerRef.current) {
             mermaidContainerRef.current.innerHTML = svg;
           }
@@ -207,9 +185,9 @@ export function ArchitectureRefinementPage() {
 
       renderMermaid();
     } else if (!mermaidDiagram && mermaidContainerRef.current) {
-      mermaidContainerRef.current.innerHTML = ''; // Clear if no diagram
+      mermaidContainerRef.current.innerHTML = ''; 
     }
-  }, [mermaidDiagram]);
+  }, [mermaidDiagram, toast]); // Added toast to dependency array as it's used inside
 
 
   return (
@@ -383,3 +361,4 @@ export function ArchitectureRefinementPage() {
     </div>
   );
 }
+
