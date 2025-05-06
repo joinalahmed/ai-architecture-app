@@ -1,8 +1,9 @@
-
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
-import { refineArchitectureDesign, RefineArchitectureDesignInput, RefineArchitectureDesignOutput } from "@/ai/flows/refine-architecture-design";
+import type { FormEvent } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import mermaid from 'mermaid';
+import { refineArchitectureDesign, type RefineArchitectureDesignInput, type RefineArchitectureDesignOutput } from "@/ai/flows/refine-architecture-design";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Send, MessageSquare, FileText, Zap, Users, Database, Server, Shield, Cloud, Share2, Settings, Code } from "lucide-react";
+import { Loader2, Send, MessageSquare, FileText, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 
@@ -21,29 +22,6 @@ interface Message {
   explanation?: string;
 }
 
-const iconMapping: { [key: string]: React.ElementType } = {
-  user: Users,
-  database: Database,
-  server: Server,
-  security: Shield,
-  cloud: Cloud,
-  api: Share2,
-  service: Settings,
-  module: Code,
-  default: FileText,
-};
-
-const getIconForComponent = (componentName: string) => {
-  const lowerName = componentName.toLowerCase();
-  for (const key in iconMapping) {
-    if (lowerName.includes(key)) {
-      return iconMapping[key];
-    }
-  }
-  return iconMapping.default;
-};
-
-
 export function ArchitectureRefinementPage() {
   const [projectDescription, setProjectDescription] = useState<string>("");
   const [initialArchitecture, setInitialArchitecture] = useState<string>("");
@@ -52,7 +30,74 @@ export function ArchitectureRefinementPage() {
   const [chatInput, setChatInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [showVisualization, setShowVisualization] = useState<boolean>(false);
+  const [mermaidDiagram, setMermaidDiagram] = useState<string>("");
   const { toast } = useToast();
+  const mermaidContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'loose',
+      theme: 'neutral', // Base theme, specific styling handled by classDef
+      // Mermaid themeVariables can be used if we want to sync with CSS vars,
+      // but classDef offers more direct control for specific node types.
+      // themeVariables: {
+      //   primaryColor: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(),
+      //   mainBkg: getComputedStyle(document.documentElement).getPropertyValue('--card').trim(),
+      //   textColor: getComputedStyle(document.documentElement).getPropertyValue('--card-foreground').trim(),
+      // }
+    });
+  }, []);
+
+  const generateMermaidDiagram = useCallback((architectureText: string): string => {
+    if (!architectureText?.trim()) return "";
+
+    // Sanitize node IDs and text for Mermaid
+    const sanitizeNodeId = (text: string) => text.replace(/[^a-zA-Z0-9_]/g, '_') || 'node';
+    const sanitizeNodeText = (text: string) => {
+      // Escape characters that have special meaning in Mermaid node text (e.g., quotes, markdown)
+      // Basic escaping for quotes. More complex text might need a robust Markdown escaper.
+      return text.replace(/"/g, '&quot;').replace(/#/g, '&num;');
+    };
+
+
+    const components = architectureText.split(/,|\n/)
+                                   .map(line => line.trim())
+                                   .filter(Boolean);
+    
+    if (components.length === 0) return "";
+
+    let mermaidString = `graph LR\n`;
+    const nodeIds: string[] = [];
+
+    components.forEach((component, index) => {
+      const baseId = sanitizeNodeId(component);
+      // Ensure unique IDs even if sanitized names are the same
+      const uniqueId = `${baseId}_${index}`; 
+      nodeIds.push(uniqueId);
+      // Use [""] for text to allow more characters and apply card class
+      mermaidString += `  ${uniqueId}["${sanitizeNodeText(component)}"]:::card\n`;
+    });
+
+    // Add connections between sequential components
+    for (let i = 0; i < nodeIds.length - 1; i++) {
+      mermaidString += `  ${nodeIds[i]} --> ${nodeIds[i + 1]}\n`;
+    }
+
+    // Define the 'card' class styling
+    // Using HSL values from globals.css (approximated to hex for mermaid)
+    // --card: 0 0% 100% (#FFFFFF)
+    // --card-foreground: 240 10% 3.9% (#262626 or similar dark gray)
+    // --border: 240 5.9% 90% (#E5E7EB)
+    // --primary for accents if needed: 180 100% 25.1% (#008080)
+    mermaidString += `
+  classDef card fill:#FFFFFF,stroke:#D1D5DB,color:#1F2937,stroke-width:1.5px,rx:8px,ry:8px,font-weight:500,padding:10px 15px;
+  %% Potentially different styling for links if needed
+  %% linkStyle default stroke:#333,stroke-width:2px;
+`;
+    return mermaidString;
+  }, []);
+
 
   const handleInitialSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -65,13 +110,12 @@ export function ArchitectureRefinementPage() {
       return;
     }
     setIsLoading(true);
-    setMessages([]); // Clear previous chat
-    setCurrentArchitecture(""); // Clear previous architecture
+    setMessages([]);
+    setCurrentArchitecture("");
+    setMermaidDiagram(""); 
 
-    // For demo purposes, we'll use a placeholder initial architecture if none is provided.
-    const baseArchitecture = initialArchitecture.trim() || "A simple web application with a frontend, a backend API, and a database.";
+    const baseArchitecture = initialArchitecture.trim() || "Frontend, Backend API, Database";
     
-
     try {
       const input: RefineArchitectureDesignInput = {
         projectDescription,
@@ -79,8 +123,11 @@ export function ArchitectureRefinementPage() {
       };
       const result = await refineArchitectureDesign(input);
       
-      setCurrentArchitecture(result.refinedArchitectureDesign); // Set current architecture first
-      setMessages([ // Then set messages, so chat can use the latest architecture if needed
+      setCurrentArchitecture(result.refinedArchitectureDesign);
+      const mermaidDef = generateMermaidDiagram(result.refinedArchitectureDesign);
+      setMermaidDiagram(mermaidDef);
+
+      setMessages([
         { id: Date.now().toString(), text: `Based on your project description, here's an initial refined architecture: \n\n${result.refinedArchitectureDesign}`, sender: "ai", explanation: result.explanation },
       ]);
       setShowVisualization(true);
@@ -117,6 +164,9 @@ export function ArchitectureRefinementPage() {
       
       setMessages(prev => [...prev, { id: (Date.now()+1).toString(), text: result.refinedArchitectureDesign, sender: "ai", explanation: result.explanation }]);
       setCurrentArchitecture(result.refinedArchitectureDesign);
+      const mermaidDef = generateMermaidDiagram(result.refinedArchitectureDesign);
+      setMermaidDiagram(mermaidDef);
+
     } catch (error) {
       console.error("Error in chat refinement:", error);
       toast({
@@ -130,15 +180,37 @@ export function ArchitectureRefinementPage() {
     }
   };
 
-  const parseArchitecture = (architectureText: string): { name: string; Icon: React.ElementType }[] => {
-    if (!architectureText) return [];
-    return architectureText.split(/,|\n/).map(line => line.trim()).filter(Boolean).map(component => {
-      const name = component.replace(/^(A |An |The )/i, '').split(' with ')[0].trim();
-      return { name, Icon: getIconForComponent(name) };
-    });
-  };
-  
-  const architectureComponents = parseArchitecture(currentArchitecture);
+  useEffect(() => {
+    if (mermaidDiagram && mermaidContainerRef.current) {
+      const renderMermaid = async () => {
+        try {
+          // Clear previous diagram
+          mermaidContainerRef.current!.innerHTML = '';
+          // Insert the new diagram definition directly for Mermaid to process
+          // Using mermaid.render to get SVG and then inserting it.
+          const { svg } = await mermaid.render('mermaid-graph', mermaidDiagram);
+          if (mermaidContainerRef.current) {
+            mermaidContainerRef.current.innerHTML = svg;
+          }
+        } catch (e: any) {
+          console.error("Error rendering mermaid diagram:", e.message);
+          if (mermaidContainerRef.current) {
+            mermaidContainerRef.current.innerHTML = `<p class="text-destructive-foreground">Error rendering diagram: ${e.message}</p><pre class="text-xs whitespace-pre-wrap">${mermaidDiagram}</pre>`;
+          }
+           toast({
+            title: "Diagram Error",
+            description: "Could not render the architecture diagram. The AI might have provided an incompatible format.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      renderMermaid();
+    } else if (!mermaidDiagram && mermaidContainerRef.current) {
+      mermaidContainerRef.current.innerHTML = ''; // Clear if no diagram
+    }
+  }, [mermaidDiagram]);
+
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background text-foreground p-4 md:p-6 lg:p-8 gap-4 md:gap-6 lg:gap-8">
@@ -161,7 +233,7 @@ export function ArchitectureRefinementPage() {
                   placeholder="e.g., A social media platform for pet owners..."
                   value={projectDescription}
                   onChange={(e) => setProjectDescription(e.target.value)}
-                  className="min-h-[150px] flex-grow resize-none bg-white dark:bg-gray-800 border-border focus:ring-primary"
+                  className="min-h-[150px] flex-grow resize-none bg-card border-border focus:ring-primary"
                   required
                 />
               </div>
@@ -172,11 +244,11 @@ export function ArchitectureRefinementPage() {
                   placeholder="e.g., Frontend (React), Backend (Node.js/Express), Database (PostgreSQL)..."
                   value={initialArchitecture}
                   onChange={(e) => setInitialArchitecture(e.target.value)}
-                  className="min-h-[100px] resize-none bg-white dark:bg-gray-800 border-border focus:ring-primary"
+                  className="min-h-[100px] resize-none bg-card border-border focus:ring-primary"
                 />
               </div>
-              <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                {isLoading && !currentArchitecture ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+              <Button type="submit" disabled={isLoading && !currentArchitecture} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                {isLoading && !messages.length ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
                 Generate Initial Design
               </Button>
             </form>
@@ -210,7 +282,7 @@ export function ArchitectureRefinementPage() {
                       </Avatar>
                     )}
                     <div
-                      className={`rounded-lg p-3 ${
+                      className={`rounded-lg p-3 shadow ${
                         msg.sender === "user"
                           ? "bg-primary text-primary-foreground"
                           : "bg-secondary text-secondary-foreground"
@@ -245,7 +317,7 @@ export function ArchitectureRefinementPage() {
                         <AvatarImage src="https://picsum.photos/seed/ai-avatar/40/40" alt="AI Avatar" data-ai-hint="robot face" />
                         <AvatarFallback>AI</AvatarFallback>
                       </Avatar>
-                      <div className="rounded-lg p-3 bg-secondary text-secondary-foreground">
+                      <div className="rounded-lg p-3 bg-secondary text-secondary-foreground shadow">
                           <Loader2 className="h-5 w-5 animate-spin text-primary" />
                       </div>
                   </div>
@@ -259,7 +331,7 @@ export function ArchitectureRefinementPage() {
                 placeholder={currentArchitecture ? "Suggest changes or ask questions..." : "Generate initial design first"}
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                className="flex-grow bg-white dark:bg-gray-800 border-border focus:ring-primary"
+                className="flex-grow bg-card border-border focus:ring-primary"
                 disabled={!currentArchitecture || isLoading}
               />
               <Button type="submit" size="icon" disabled={!currentArchitecture || isLoading || !chatInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
@@ -277,56 +349,37 @@ export function ArchitectureRefinementPage() {
           <CardTitle className="text-2xl font-semibold flex items-center">
             <FileText className="mr-2 h-6 w-6 text-primary" /> Architecture Diagram
           </CardTitle>
-          <CardDescription>Visual representation of the current architecture.</CardDescription>
+          <CardDescription>Visual representation of the current architecture. Nodes are draggable.</CardDescription>
         </CardHeader>
-        <CardContent className="flex-grow p-4 overflow-hidden">
+        <CardContent className="flex-grow p-4 overflow-auto bg-secondary/20 rounded-b-lg">
           <AnimatePresence>
             {showVisualization && currentArchitecture && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.5, ease: "easeInOut" }}
-                className="h-full w-full border border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center bg-secondary/50"
-              >
-                {architectureComponents.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full">
-                    {architectureComponents.map((component, index) => (
-                      <motion.div
-                        key={`${component.name}-${index}`}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.1, duration: 0.3 }}
-                        className="flex flex-col items-center p-3 bg-card rounded-md shadow-md aspect-square justify-center"
-                      >
-                        <component.Icon className="h-10 w-10 text-primary mb-2" />
-                        <p className="text-xs text-center font-medium text-foreground truncate w-full">{component.name}</p>
-                      </motion.div>
-                    ))}
+               <motion.div
+                  key="mermaid-container"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="h-full w-full border border-dashed border-border rounded-lg p-2 sm:p-4 flex items-center justify-center bg-card"
+                >
+                  <div ref={mermaidContainerRef} id="mermaid-diagram-container" className="w-full h-full min-h-[300px]">
+                    {/* Mermaid diagram will be rendered here by useEffect */}
                   </div>
-                ) : (
-                  <div className="text-center text-muted-foreground">
-                    <Image src="https://picsum.photos/seed/empty-arch/200/150" alt="Empty state" width={200} height={150} className="mx-auto mb-4 rounded-md" data-ai-hint="blueprint empty" />
-                    <p className="font-semibold">No architecture to display.</p>
-                    <p className="text-sm">Generate an initial design or refine the current one.</p>
-                  </div>
-                )}
               </motion.div>
             )}
           </AnimatePresence>
-           {!showVisualization && (
-             <div className="h-full w-full border border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center bg-secondary/50">
-                <Image src="https://picsum.photos/seed/initial-arch/200/150" alt="Initial state" width={200} height={150} className="mx-auto mb-4 rounded-md" data-ai-hint="blueprint puzzle" />
+           {!showVisualization && !currentArchitecture && (
+             <div className="h-full w-full border border-dashed border-border rounded-lg p-6 flex flex-col items-center justify-center bg-card">
+                <Image src="https://picsum.photos/seed/initial-arch-placeholder/200/150" alt="Initial state placeholder" width={200} height={150} className="mx-auto mb-4 rounded-md shadow-md" data-ai-hint="blueprint puzzle" />
                 <p className="font-semibold text-muted-foreground">Your architecture diagram will appear here.</p>
-                <p className="text-sm text-muted-foreground">Start by describing your project.</p>
+                <p className="text-sm text-muted-foreground">Start by describing your project on the left.</p>
              </div>
            )}
         </CardContent>
-         <CardFooter className="text-xs text-muted-foreground p-4">
-            Note: Visualization is a simplified representation.
+         <CardFooter className="text-xs text-muted-foreground p-4 border-t">
+            Note: Visualization is a dynamic representation. Diagram generated using Mermaid.
           </CardFooter>
       </Card>
     </div>
   );
 }
-

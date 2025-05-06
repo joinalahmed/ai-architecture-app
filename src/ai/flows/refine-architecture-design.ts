@@ -18,7 +18,7 @@ const RefineArchitectureDesignInputSchema = z.object({
     .describe('A detailed description of the software project.'),
   initialArchitectureDesign: z
     .string()
-    .describe('The initial software architecture design to be refined.'),
+    .describe('The initial software architecture design to be refined. This can be a list of components or a descriptive text.'),
 });
 export type RefineArchitectureDesignInput = z.infer<
   typeof RefineArchitectureDesignInputSchema
@@ -27,10 +27,10 @@ export type RefineArchitectureDesignInput = z.infer<
 const RefineArchitectureDesignOutputSchema = z.object({
   refinedArchitectureDesign: z
     .string()
-    .describe('The refined software architecture design.'),
+    .describe('The refined software architecture design, typically as a comma or newline-separated list of main components or a descriptive paragraph. This will be used to generate a diagram.'),
   explanation: z
     .string()
-    .describe('An explanation of the changes made to the architecture.'),
+    .describe('An explanation of the changes made to the architecture and the reasoning behind the refined design.'),
 });
 export type RefineArchitectureDesignOutput = z.infer<
   typeof RefineArchitectureDesignOutputSchema
@@ -47,15 +47,21 @@ const refineArchitectureDesignPrompt = ai.definePrompt({
   input: {schema: RefineArchitectureDesignInputSchema},
   output: {schema: RefineArchitectureDesignOutputSchema},
   prompt: `You are an expert software architect. You will receive a project
-  description and an initial architecture design. Your task is to refine the
-  architecture design based on the project description, providing a clear
-  explanation of the changes you make.
+description and an initial architecture design. Your task is to refine the
+architecture design based on the project description.
 
-  Project Description: {{{projectDescription}}}
-  Initial Architecture Design: {{{initialArchitectureDesign}}}
+When providing the "refinedArchitectureDesign", please list the key components
+as a comma-separated list or each on a new line (e.g., "Web Frontend, API Gateway, User Service, Product Service, Database").
+This will be used to generate a visual diagram.
 
-  Refined Architecture Design: 
-  Explanation: `,
+Also, provide a clear "explanation" for the changes you made and the rationale behind your refined design.
+
+Project Description:
+{{{projectDescription}}}
+
+Initial Architecture Design:
+{{{initialArchitectureDesign}}}
+`,
 });
 
 const refineArchitectureDesignFlow = ai.defineFlow(
@@ -66,6 +72,14 @@ const refineArchitectureDesignFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await refineArchitectureDesignPrompt(input);
-    return output!;
+    if (!output) {
+      throw new Error('AI did not return an output.');
+    }
+    // Ensure the output structure matches, even if AI returns slightly different casing for keys.
+    // This is a safeguard. Zod validation on output should ideally handle this.
+    return {
+      refinedArchitectureDesign: output.refinedArchitectureDesign || '',
+      explanation: output.explanation || '',
+    };
   }
 );
