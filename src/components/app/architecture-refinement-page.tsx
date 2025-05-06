@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
@@ -69,7 +70,7 @@ export function ArchitectureRefinementPage() {
 
     // For demo purposes, we'll use a placeholder initial architecture if none is provided.
     const baseArchitecture = initialArchitecture.trim() || "A simple web application with a frontend, a backend API, and a database.";
-    setCurrentArchitecture(baseArchitecture);
+    
 
     try {
       const input: RefineArchitectureDesignInput = {
@@ -78,10 +79,10 @@ export function ArchitectureRefinementPage() {
       };
       const result = await refineArchitectureDesign(input);
       
-      setMessages([
+      setCurrentArchitecture(result.refinedArchitectureDesign); // Set current architecture first
+      setMessages([ // Then set messages, so chat can use the latest architecture if needed
         { id: Date.now().toString(), text: `Based on your project description, here's an initial refined architecture: \n\n${result.refinedArchitectureDesign}`, sender: "ai", explanation: result.explanation },
       ]);
-      setCurrentArchitecture(result.refinedArchitectureDesign);
       setShowVisualization(true);
     } catch (error) {
       console.error("Error refining architecture:", error);
@@ -108,10 +109,6 @@ export function ArchitectureRefinementPage() {
     setIsLoading(true);
 
     try {
-      // The AI flow expects projectDescription and initialArchitectureDesign.
-      // For chat, we can use the currentArchitecture as the "initial" design to refine further.
-      // The project description remains the same. The user's chat input can be appended to the project description
-      // or treated as a specific instruction. For simplicity here, we'll treat user's chat as a new refinement instruction for current architecture.
       const input: RefineArchitectureDesignInput = {
         projectDescription: `${projectDescription}\n\nUser feedback/request: ${chatInput}`,
         initialArchitectureDesign: currentArchitecture,
@@ -133,12 +130,10 @@ export function ArchitectureRefinementPage() {
     }
   };
 
-  // Basic parsing for visualization. This would be much more complex for a real app.
   const parseArchitecture = (architectureText: string): { name: string; Icon: React.ElementType }[] => {
     if (!architectureText) return [];
-    // This is a very naive parser. A real implementation would use a structured format (e.g., JSON, YAML) or more robust NLP.
     return architectureText.split(/,|\n/).map(line => line.trim()).filter(Boolean).map(component => {
-      const name = component.replace(/^(A |An |The )/i, '').split(' with ')[0].trim(); // Basic cleaning
+      const name = component.replace(/^(A |An |The )/i, '').split(' with ')[0].trim();
       return { name, Icon: getIconForComponent(name) };
     });
   };
@@ -147,134 +142,137 @@ export function ArchitectureRefinementPage() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background text-foreground p-4 md:p-6 lg:p-8 gap-4 md:gap-6 lg:gap-8">
-      {/* Left Panel: Project Description & Initial Architecture */}
-      <Card className="w-full md:w-1/3 flex flex-col shadow-xl">
-        <CardHeader>
-          <CardTitle className="text-2xl font-semibold flex items-center">
-            <Zap className="mr-2 h-6 w-6 text-primary" /> Project Details
-          </CardTitle>
-          <CardDescription>Describe your project and optionally provide an initial architecture idea.</CardDescription>
-        </CardHeader>
-        <CardContent className="flex-grow flex flex-col gap-4">
-          <form onSubmit={handleInitialSubmit} className="flex flex-col gap-4 flex-grow">
-            <div className="flex flex-col gap-2 flex-grow">
-              <label htmlFor="projectDescription" className="font-medium">Project Description</label>
-              <Textarea
-                id="projectDescription"
-                placeholder="e.g., A social media platform for pet owners..."
-                value={projectDescription}
-                onChange={(e) => setProjectDescription(e.target.value)}
-                className="min-h-[150px] flex-grow resize-none bg-white dark:bg-gray-800 border-border focus:ring-primary"
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="initialArchitecture" className="font-medium">Initial Architecture (Optional)</label>
-              <Textarea
-                id="initialArchitecture"
-                placeholder="e.g., Frontend (React), Backend (Node.js/Express), Database (PostgreSQL)..."
-                value={initialArchitecture}
-                onChange={(e) => setInitialArchitecture(e.target.value)}
-                className="min-h-[100px] resize-none bg-white dark:bg-gray-800 border-border focus:ring-primary"
-              />
-            </div>
-            <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
-              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
-              Generate Initial Design
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Combined Left Panel: Project Description & Chat */}
+      <div className="w-full md:w-1/2 flex flex-col gap-4 md:gap-6 lg:gap-8">
+        {/* Project Description Card */}
+        <Card className="shadow-xl flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-2xl font-semibold flex items-center">
+              <Zap className="mr-2 h-6 w-6 text-primary" /> Project Details
+            </CardTitle>
+            <CardDescription>Describe your project and optionally provide an initial architecture idea.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-grow flex flex-col gap-4">
+            <form onSubmit={handleInitialSubmit} className="flex flex-col gap-4 flex-grow">
+              <div className="flex flex-col gap-2 flex-grow">
+                <label htmlFor="projectDescription" className="font-medium">Project Description</label>
+                <Textarea
+                  id="projectDescription"
+                  placeholder="e.g., A social media platform for pet owners..."
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  className="min-h-[150px] flex-grow resize-none bg-white dark:bg-gray-800 border-border focus:ring-primary"
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <label htmlFor="initialArchitecture" className="font-medium">Initial Architecture (Optional)</label>
+                <Textarea
+                  id="initialArchitecture"
+                  placeholder="e.g., Frontend (React), Backend (Node.js/Express), Database (PostgreSQL)..."
+                  value={initialArchitecture}
+                  onChange={(e) => setInitialArchitecture(e.target.value)}
+                  className="min-h-[100px] resize-none bg-white dark:bg-gray-800 border-border focus:ring-primary"
+                />
+              </div>
+              <Button type="submit" disabled={isLoading} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+                {isLoading && !currentArchitecture ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Zap className="mr-2 h-4 w-4" />}
+                Generate Initial Design
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-      {/* Middle Panel: Chat Interface */}
-      <div className="w-full md:w-1/3 flex flex-col shadow-xl bg-card rounded-lg">
-        <CardHeader className="border-b border-border">
-          <CardTitle className="text-2xl font-semibold flex items-center">
-            <MessageSquare className="mr-2 h-6 w-6 text-primary" /> Refinement Chat
-          </CardTitle>
-          <CardDescription>Discuss and iterate on the architecture design with AI.</CardDescription>
-        </CardHeader>
-        <ScrollArea className="flex-grow p-4">
-          <AnimatePresence>
-            {messages.map((msg) => (
-              <motion.div
-                key={msg.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className={`flex mb-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div className={`flex items-end gap-2 max-w-[80%]`}>
-                  {msg.sender === 'ai' && (
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="https://picsum.photos/seed/ai-avatar/40/40" alt="AI Avatar" data-ai-hint="robot face" />
-                      <AvatarFallback>AI</AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div
-                    className={`rounded-lg p-3 ${
-                      msg.sender === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground"
-                    }`}
-                  >
-                    <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                    {msg.sender === "ai" && msg.explanation && (
-                       <details className="mt-2">
-                         <summary className="text-xs text-muted-foreground cursor-pointer hover:underline">Explanation</summary>
-                         <p className="text-xs text-muted-foreground mt-1 italic">{msg.explanation}</p>
-                       </details>
+        {/* Chat Interface Card */}
+        <Card className="shadow-xl flex flex-col flex-grow bg-card rounded-lg min-h-[300px] md:min-h-0">
+          <CardHeader className="border-b border-border">
+            <CardTitle className="text-2xl font-semibold flex items-center">
+              <MessageSquare className="mr-2 h-6 w-6 text-primary" /> Refinement Chat
+            </CardTitle>
+            <CardDescription>Discuss and iterate on the architecture design with AI.</CardDescription>
+          </CardHeader>
+          <ScrollArea className="flex-grow p-4">
+            <AnimatePresence>
+              {messages.map((msg) => (
+                <motion.div
+                  key={msg.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex mb-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div className={`flex items-end gap-2 max-w-[80%]`}>
+                    {msg.sender === 'ai' && (
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src="https://picsum.photos/seed/ai-avatar/40/40" alt="AI Avatar" data-ai-hint="robot face" />
+                        <AvatarFallback>AI</AvatarFallback>
+                      </Avatar>
+                    )}
+                    <div
+                      className={`rounded-lg p-3 ${
+                        msg.sender === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-secondary-foreground"
+                      }`}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                      {msg.sender === "ai" && msg.explanation && (
+                         <details className="mt-2">
+                           <summary className="text-xs text-muted-foreground cursor-pointer hover:underline">Explanation</summary>
+                           <p className="text-xs text-muted-foreground mt-1 italic">{msg.explanation}</p>
+                         </details>
+                      )}
+                    </div>
+                     {msg.sender === 'user' && (
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src="https://picsum.photos/seed/user-avatar/40/40" alt="User Avatar" data-ai-hint="person silhouette" />
+                        <AvatarFallback>U</AvatarFallback>
+                      </Avatar>
                     )}
                   </div>
-                   {msg.sender === 'user' && (
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="https://picsum.photos/seed/user-avatar/40/40" alt="User Avatar" data-ai-hint="person silhouette" />
-                      <AvatarFallback>U</AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {isLoading && messages.length > 0 && messages[messages.length-1].sender === 'user' && (
+               <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-start mb-4"
+                >
+                  <div className="flex items-end gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src="https://picsum.photos/seed/ai-avatar/40/40" alt="AI Avatar" data-ai-hint="robot face" />
+                        <AvatarFallback>AI</AvatarFallback>
+                      </Avatar>
+                      <div className="rounded-lg p-3 bg-secondary text-secondary-foreground">
+                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      </div>
+                  </div>
               </motion.div>
-            ))}
-          </AnimatePresence>
-          {isLoading && messages.length > 0 && messages[messages.length-1].sender === 'user' && (
-             <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex justify-start mb-4"
-              >
-                <div className="flex items-end gap-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src="https://picsum.photos/seed/ai-avatar/40/40" alt="AI Avatar" data-ai-hint="robot face" />
-                      <AvatarFallback>AI</AvatarFallback>
-                    </Avatar>
-                    <div className="rounded-lg p-3 bg-secondary text-secondary-foreground">
-                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                    </div>
-                </div>
-            </motion.div>
-          )}
-        </ScrollArea>
-        <CardFooter className="p-4 border-t border-border">
-          <form onSubmit={handleChatSubmit} className="flex w-full items-center gap-2">
-            <Input
-              type="text"
-              placeholder={currentArchitecture ? "Suggest changes or ask questions..." : "Generate initial design first"}
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              className="flex-grow bg-white dark:bg-gray-800 border-border focus:ring-primary"
-              disabled={!currentArchitecture || isLoading}
-            />
-            <Button type="submit" size="icon" disabled={!currentArchitecture || isLoading || !chatInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-              <Send className="h-4 w-4" />
-              <span className="sr-only">Send</span>
-            </Button>
-          </form>
-        </CardFooter>
+            )}
+          </ScrollArea>
+          <CardFooter className="p-4 border-t border-border">
+            <form onSubmit={handleChatSubmit} className="flex w-full items-center gap-2">
+              <Input
+                type="text"
+                placeholder={currentArchitecture ? "Suggest changes or ask questions..." : "Generate initial design first"}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                className="flex-grow bg-white dark:bg-gray-800 border-border focus:ring-primary"
+                disabled={!currentArchitecture || isLoading}
+              />
+              <Button type="submit" size="icon" disabled={!currentArchitecture || isLoading || !chatInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Send className="h-4 w-4" />
+                <span className="sr-only">Send</span>
+              </Button>
+            </form>
+          </CardFooter>
+        </Card>
       </div>
 
       {/* Right Panel: Architecture Visualization */}
-      <Card className="w-full md:w-1/3 flex flex-col shadow-xl">
+      <Card className="w-full md:w-1/2 flex flex-col shadow-xl">
         <CardHeader>
           <CardTitle className="text-2xl font-semibold flex items-center">
             <FileText className="mr-2 h-6 w-6 text-primary" /> Architecture Diagram
@@ -331,3 +329,4 @@ export function ArchitectureRefinementPage() {
     </div>
   );
 }
+
