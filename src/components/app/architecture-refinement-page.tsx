@@ -1,4 +1,3 @@
-
 "use client";
 
 import type { FormEvent } from "react";
@@ -12,9 +11,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Send, MessageSquare, FileText, Zap, Database, Cloud, Server, Laptop } from "lucide-react";
+import { Loader2, Send, MessageSquare, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 interface Message {
   id: string;
@@ -35,24 +35,24 @@ export function ArchitectureRefinementPage() {
   const { toast } = useToast();
   const mermaidContainerRef = useRef<HTMLDivElement>(null);
 
+  const [accordionValue, setAccordionValue] = useState<string>("projectDetails");
+  const [isInitialDesignGenerated, setIsInitialDesignGenerated] = useState<boolean>(false);
+
+
   useEffect(() => {
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'loose',
-      theme: 'neutral', // 'neutral' uses CSS variables for theming
-       fontFamily: 'Inter, sans-serif', // Match with global font
+      theme: 'neutral', 
+       fontFamily: 'Inter, sans-serif',
        mermaid: {
         themeVariables: {
-            // These are examples; you might need to adjust based on your globals.css
-            // For a more dynamic approach, consider injecting these from CSS variables directly
-            // if mermaid's theming allows for it in a more advanced setup.
-            primaryColor: 'hsl(var(--primary))', // Primary color for nodes/borders
-            primaryTextColor: 'hsl(var(--primary-foreground))', // Text color for primary elements
-            lineColor: 'hsl(var(--foreground))', // Arrow/link color
-            textColor: 'hsl(var(--foreground))', // Default text color
-            mainBkg: 'hsl(var(--card))', // Node background
-            nodeBorder: 'hsl(var(--border))', // Node border
-            // Add other mermaid theme variables as needed
+            primaryColor: 'hsl(var(--primary))', 
+            primaryTextColor: 'hsl(var(--primary-foreground))', 
+            lineColor: 'hsl(var(--foreground))', 
+            textColor: 'hsl(var(--foreground))', 
+            mainBkg: 'hsl(var(--card))', 
+            nodeBorder: 'hsl(var(--border))', 
         }
       }
     });
@@ -63,7 +63,6 @@ export function ArchitectureRefinementPage() {
 
     const sanitizeNodeId = (text: string) => text.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 50) || 'node';
     const sanitizeNodeText = (text: string) => {
-      // Escape mermaid specific characters and quotes
       return text
         .replace(/"/g, '&quot;')
         .replace(/#/g, '&num;')
@@ -79,65 +78,20 @@ export function ArchitectureRefinementPage() {
     
     if (components.length === 0) return "";
 
-    let mermaidString = `graph TD\n`; // TD for TopDown, LR for LeftRight
+    let mermaidString = `graph TD\n`; 
     const nodeIds: { id: string, text: string, type: string }[] = [];
 
     const componentTypeKeywords: Record<string, string> = {
-      frontend: "frontend",
-      ui: "frontend",
-      "user interface": "frontend",
-      react: "frontend",
-      vue: "frontend",
-      angular: "frontend",
-      nextjs: "frontend",
-      web: "frontend",
-      mobile: "frontend",
-      app: "frontend",
-      client: "frontend",
-      
-      backend: "server",
-      api: "server",
-      service: "server",
-      microservice: "server",
-      server: "server",
-      "node.js": "server",
-      python: "server",
-      java: "server",
-      go: "server",
-      
-      database: "database",
-      db: "database",
-      storage: "database",
-      sql: "database",
-      nosql: "database",
-      mongodb: "database",
-      postgresql: "database",
-      mysql: "database",
-      redis: "database",
-      
-      gateway: "gateway",
-      "api gateway": "gateway",
-
+      frontend: "frontend", ui: "frontend", "user interface": "frontend", react: "frontend", vue: "frontend", angular: "frontend", nextjs: "frontend", web: "frontend", mobile: "frontend", app: "frontend", client: "frontend",
+      backend: "server", api: "server", service: "server", microservice: "server", server: "server", "node.js": "server", python: "server", java: "server", go: "server",
+      database: "database", db: "database", storage: "database", sql: "database", nosql: "database", mongodb: "database", postgresql: "database", mysql: "database", redis: "database",
+      gateway: "gateway", "api gateway": "gateway",
       cache: "cache",
-
-      queue: "queue",
-      "message queue": "queue",
-      kafka: "queue",
-      rabbitmq: "queue",
-      
-      auth: "auth",
-      authentication: "auth",
-      identity: "auth",
-
-      cdn: "cdn",
-      "content delivery network": "cdn",
-
-      "load balancer": "loadbalancer",
-      lb: "loadbalancer",
-
-      external: "external",
-      "third party": "external",
-      "3rd party": "external",
+      queue: "queue", "message queue": "queue", kafka: "queue", rabbitmq: "queue",
+      auth: "auth", authentication: "auth", identity: "auth",
+      cdn: "cdn", "content delivery network": "cdn",
+      "load balancer": "loadbalancer", lb: "loadbalancer",
+      external: "external", "third party": "external", "3rd party": "external",
     };
 
     const getComponentType = (componentText: string): string => {
@@ -147,69 +101,64 @@ export function ArchitectureRefinementPage() {
           return componentTypeKeywords[keyword];
         }
       }
-      return "default"; // Default type if no keyword matches
+      return "default"; 
     };
     
     components.forEach((component, index) => {
       const baseId = sanitizeNodeId(component);
-      // Ensure unique IDs even if sanitized IDs are the same
       const uniqueId = `${baseId}_${index}`; 
       const componentType = getComponentType(component);
       nodeIds.push({ id: uniqueId, text: component, type: componentType });
 
-      // Different shapes for different component types
-      // Using text as label, and sanitized text for quotes issue
       const labelText = sanitizeNodeText(component);
+      // Default class will be applied via classDef, specific styling via `style` directive for more control per node
+      mermaidString += `  ${uniqueId}["${labelText}"];\n`;
       switch (componentType) {
         case "database":
-          mermaidString += `  ${uniqueId}[("${labelText}")];;;\n`; // Cylinder shape
-          mermaidString += `  style ${uniqueId} fill:hsl(var(--card)),stroke:hsl(var(--accent)),stroke-width:2px,color:hsl(var(--card-foreground)),rx:5,ry:5\n`;
+          mermaidString += `  style ${uniqueId} cssClass:"databaseNode"\n`;
           break;
         case "server":
-          mermaidString += `  ${uniqueId}["${labelText}"];;;\n`; // Rectangle (default, but styled)
-           mermaidString += `  style ${uniqueId} fill:hsl(var(--card)),stroke:hsl(var(--primary)),stroke-width:2px,color:hsl(var(--card-foreground)),rx:var(--radius),ry:var(--radius)\n`;
+          mermaidString += `  style ${uniqueId} cssClass:"serverNode"\n`;
           break;
         case "frontend":
-           mermaidString += `  ${uniqueId}["${labelText}"];;;\n`; // Rectangle
-           mermaidString += `  style ${uniqueId} fill:hsl(var(--secondary)),stroke:hsl(var(--primary)),stroke-width:2px,color:hsl(var(--secondary-foreground)),rx:var(--radius),ry:var(--radius)\n`;
+          mermaidString += `  style ${uniqueId} cssClass:"frontendNode"\n`;
           break;
         case "gateway":
-          mermaidString += `  ${uniqueId}{"${labelText}"};;;\n`; // Rhombus
-          mermaidString += `  style ${uniqueId} fill:hsl(var(--card)),stroke:hsl(var(--accent)),stroke-width:2px,color:hsl(var(--card-foreground))\n`;
+          mermaidString += `  style ${uniqueId} cssClass:"gatewayNode",shape:rhombus\n`; // Apply rhombus shape here
           break;
         case "external":
-           mermaidString += `  ${uniqueId}[("${labelText}")];;;\n`; // Rounded rectangle
-           mermaidString += `  style ${uniqueId} fill:hsl(var(--muted)),stroke:hsl(var(--border)),stroke-width:2px,color:hsl(var(--muted-foreground)),rx:var(--radius),ry:var(--radius)\n`;
+           mermaidString += `  style ${uniqueId} cssClass:"externalNode"\n`;
           break;
         default:
-          mermaidString += `  ${uniqueId}["${labelText}"];;;\n`; // Default rectangle
-          mermaidString += `  style ${uniqueId} fill:hsl(var(--card)),stroke:hsl(var(--border)),stroke-width:2px,color:hsl(var(--card-foreground)),rx:var(--radius),ry:var(--radius)\n`;
+          // Will use default class
+          break;
       }
     });
 
-    // Default sequential connections (can be improved if AI provides relations)
     for (let i = 0; i < nodeIds.length - 1; i++) {
-        // Simple heuristic: if a frontend connects to a backend/gateway, or backend to database, make it more prominent
         const fromType = nodeIds[i].type;
         const toType = nodeIds[i+1].type;
 
         if ((fromType === "frontend" && (toType === "server" || toType === "gateway")) ||
             (fromType === "server" && toType === "database") ||
             (fromType === "gateway" && toType === "server")) {
-             mermaidString += `  ${nodeIds[i].id} ==> ${nodeIds[i+1].id}\n`; // Thicker arrow
+             mermaidString += `  ${nodeIds[i].id} ==> ${nodeIds[i+1].id}\n`;
+             mermaidString += `  linkStyle ${i} stroke-width:3px,stroke:hsl(var(--primary))\n`;
         } else {
             mermaidString += `  ${nodeIds[i].id} --> ${nodeIds[i+1].id}\n`;
         }
     }
-
-    // General styling for links and classes
+    
+    // Define classes at the end for global styling based on globals.css
     mermaidString += `
-  classDef default fill:hsl(var(--card)),stroke:hsl(var(--border)),color:hsl(var(--card-foreground)),stroke-width:1.5px,rx:var(--radius),ry:var(--radius),font-weight:500,padding:12px 18px,font-size:14px;
-  classDef databaseNode fill:hsl(var(--accent)),stroke:hsl(var(--accent-foreground)),color:hsl(var(--accent-foreground)),stroke-width:2px,rx:20px,ry:20px;
-  classDef serverNode fill:hsl(var(--primary)),stroke:hsl(var(--primary-foreground)),color:hsl(var(--primary-foreground)),stroke-width:2px;
-  
-  linkStyle default stroke:hsl(var(--foreground)),stroke-width:2px,color:hsl(var(--foreground));
-  linkStyle thick stroke:hsl(var(--primary)),stroke-width:3px,color:hsl(var(--primary));
+  classDef default fill:hsl(var(--card)),stroke:hsl(var(--border)),color:hsl(var(--card-foreground)),stroke-width:2px,rx:var(--radius),ry:var(--radius),font-weight:500,font-size:14px,padding:10px 15px;
+  classDef databaseNode fill:hsl(var(--accent)),stroke:hsl(var(--accent-foreground)),color:hsl(var(--accent-foreground)),shape:cylinder;
+  classDef serverNode fill:hsl(var(--primary)),stroke:hsl(var(--primary-foreground)),color:hsl(var(--primary-foreground));
+  classDef frontendNode fill:hsl(var(--secondary)),stroke:hsl(var(--primary)),color:hsl(var(--secondary-foreground));
+  classDef gatewayNode fill:hsl(var(--card)),stroke:hsl(var(--accent)),color:hsl(var(--card-foreground));
+  classDef externalNode fill:hsl(var(--muted)),stroke:hsl(var(--border)),color:hsl(var(--muted-foreground));
+
+  linkStyle default stroke:hsl(var(--foreground)),stroke-width:2px;
 `;
     return mermaidString;
   }, []);
@@ -247,6 +196,8 @@ export function ArchitectureRefinementPage() {
         { id: Date.now().toString(), text: `Based on your project description, here's an initial refined architecture: \n\n${result.refinedArchitectureDesign}`, sender: "ai", explanation: result.explanation },
       ]);
       setShowVisualization(true);
+      setIsInitialDesignGenerated(true);
+      setAccordionValue(""); // Collapse project details
     } catch (error) {
       console.error("Error refining architecture:", error);
       toast({
@@ -300,26 +251,22 @@ export function ArchitectureRefinementPage() {
     if (mermaidDiagram && mermaidContainerRef.current) {
       const renderMermaid = async () => {
         try {
-          // Ensure container is clean and ready
           mermaidContainerRef.current!.innerHTML = '<div class="mermaid-render-placeholder flex items-center justify-center h-full w-full text-muted-foreground"><Loader2 class="h-8 w-8 animate-spin text-primary" /> Rendering Diagram...</div>';
           
-          // It's crucial that the ID passed to mermaid.render is unique for each render,
-          // especially if re-rendering the same diagram definition after changes.
           const uniqueRenderId = `mermaid-graph-${Date.now()}`;
           const { svg, bindFunctions } = await mermaid.render(uniqueRenderId, mermaidDiagram);
           
           if (mermaidContainerRef.current) {
             mermaidContainerRef.current.innerHTML = svg;
             if (bindFunctions) {
-               bindFunctions(mermaidContainerRef.current); // For interactivity if any
+               bindFunctions(mermaidContainerRef.current);
             }
-            // Try to make SVG responsive
             const svgElement = mermaidContainerRef.current.querySelector('svg');
             if (svgElement) {
               svgElement.setAttribute('width', '100%');
               svgElement.setAttribute('height', '100%');
-              svgElement.style.maxWidth = '100%'; // Ensure it doesn't overflow container
-              svgElement.style.maxHeight = 'calc(100vh - 200px)'; // Example constraint
+              svgElement.style.maxWidth = '100%'; 
+              svgElement.style.maxHeight = 'calc(100vh - 200px)'; 
             }
           }
         } catch (e: any) {
@@ -341,7 +288,6 @@ export function ArchitectureRefinementPage() {
         }
       };
 
-      // Debounce or delay rendering slightly if diagram changes rapidly
       const timerId = setTimeout(renderMermaid, 100);
       return () => clearTimeout(timerId);
 
@@ -354,133 +300,146 @@ export function ArchitectureRefinementPage() {
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background text-foreground p-4 md:p-6 lg:p-8 gap-4 md:gap-6 lg:gap-8">
       {/* Combined Left Panel: Project Description & Chat */}
-      <div className="w-full md:w-1/2 lg:w-2/5 xl:w-1/3 flex flex-col gap-4 md:gap-6 lg:gap-8 max-h-screen overflow-y-auto">
-        {/* Project Description Card */}
-        <Card className="shadow-xl flex flex-col">
-          <CardHeader>
-            <CardTitle className="text-2xl font-semibold flex items-center">
-              <Zap className="mr-2 h-6 w-6 text-primary" /> Project Details
-            </CardTitle>
-            <CardDescription>Describe your project and optionally provide an initial architecture idea.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex-grow flex flex-col gap-4">
-            <form onSubmit={handleInitialSubmit} className="flex flex-col gap-4 flex-grow">
-              <div className="flex flex-col gap-2 flex-grow">
-                <label htmlFor="projectDescription" className="font-medium">Project Description</label>
-                <Textarea
-                  id="projectDescription"
-                  placeholder="e.g., A social media platform for pet owners with real-time chat, photo sharing, and event planning capabilities. Scalability and security are key concerns."
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                  className="min-h-[150px] flex-grow resize-none bg-card border-input focus:ring-primary rounded-md shadow-sm"
-                  required
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label htmlFor="initialArchitecture" className="font-medium">Initial Architecture (Optional)</label>
-                <Textarea
-                  id="initialArchitecture"
-                  placeholder="e.g., Frontend (React), Backend API (Node.js/Express), User Database (PostgreSQL), Chat Service (WebSocket), Image Storage (S3)..."
-                  value={initialArchitecture}
-                  onChange={(e) => setInitialArchitecture(e.target.value)}
-                  className="min-h-[100px] resize-none bg-card border-input focus:ring-primary rounded-md shadow-sm"
-                />
-              </div>
-              <Button type="submit" disabled={isLoading && !currentArchitecture} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md py-3 text-base font-semibold">
-                {isLoading && !messages.length ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Zap className="mr-2 h-5 w-5" />}
-                Generate Initial Design
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      <div className="w-full md:w-1/2 lg:w-2/5 xl:w-1/3 flex flex-col gap-4 md:gap-6 lg:gap-8 max-h-screen">
+        <Accordion type="single" collapsible className="w-full" value={accordionValue} onValueChange={setAccordionValue}>
+          <AccordionItem value="projectDetails" className="border-b-0">
+            <Card className="shadow-xl flex flex-col">
+              <AccordionTrigger className="hover:no-underline">
+                <CardHeader className="flex-row justify-between items-center w-full pr-2"> {/* Adjusted CardHeader */}
+                  <div className="flex items-center">
+                    <Zap className="mr-2 h-6 w-6 text-primary" />
+                    <CardTitle className="text-2xl font-semibold">Project Details</CardTitle>
+                  </div>
+                  {/* AccordionTrigger will place its chevron here implicitly */}
+                </CardHeader>
+              </AccordionTrigger>
+              <AccordionContent> {/* Content wrapper for accordion */}
+                <CardDescription className="px-6 pb-4 -mt-4"> {/* Adjust description position if needed */}
+                  Describe your project and optionally provide an initial architecture idea.
+                </CardDescription>
+                <CardContent className="pt-0 flex flex-col gap-4">
+                  <form onSubmit={handleInitialSubmit} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="projectDescription" className="font-medium">Project Description</label>
+                      <Textarea
+                        id="projectDescription"
+                        placeholder="e.g., A social media platform for pet owners..."
+                        value={projectDescription}
+                        onChange={(e) => setProjectDescription(e.target.value)}
+                        className="min-h-[150px] resize-none bg-card border-input focus:ring-primary rounded-md shadow-sm"
+                        required
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <label htmlFor="initialArchitecture" className="font-medium">Initial Architecture (Optional)</label>
+                      <Textarea
+                        id="initialArchitecture"
+                        placeholder="e.g., Frontend (React), Backend API (Node.js/Express)..."
+                        value={initialArchitecture}
+                        onChange={(e) => setInitialArchitecture(e.target.value)}
+                        className="min-h-[100px] resize-none bg-card border-input focus:ring-primary rounded-md shadow-sm"
+                      />
+                    </div>
+                    <Button type="submit" disabled={isLoading && !currentArchitecture} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md py-3 text-base font-semibold">
+                      {isLoading && !messages.length ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Zap className="mr-2 h-5 w-5" />}
+                      Generate Initial Design
+                    </Button>
+                  </form>
+                </CardContent>
+              </AccordionContent>
+            </Card>
+          </AccordionItem>
+        </Accordion>
 
-        {/* Chat Interface Card */}
-        <Card className="shadow-xl flex flex-col flex-grow bg-card rounded-lg min-h-[300px] md:min-h-0">
-          <CardHeader className="border-b border-border">
-            <CardTitle className="text-2xl font-semibold flex items-center">
-              <MessageSquare className="mr-2 h-6 w-6 text-primary" /> Refinement Chat
-            </CardTitle>
-            <CardDescription>Discuss and iterate on the architecture design with the AI.</CardDescription>
-          </CardHeader>
-          <ScrollArea className="flex-grow p-4" id="chat-scroll-area">
-            <AnimatePresence>
-              {messages.map((msg) => (
-                <motion.div
-                  key={msg.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className={`flex mb-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-                >
-                  <div className={`flex items-end gap-2 max-w-[85%]`}>
-                    {msg.sender === 'ai' && (
-                      <Avatar className="h-8 w-8 self-start shadow-sm">
-                        <AvatarImage src="https://picsum.photos/seed/ai-arch/40/40" alt="AI Avatar" data-ai-hint="brain circuit" />
-                        <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
-                      </Avatar>
-                    )}
-                    <div
-                      className={`rounded-xl p-3 shadow-md ${
-                        msg.sender === "user"
-                          ? "bg-primary text-primary-foreground rounded-br-none"
-                          : "bg-secondary text-secondary-foreground rounded-bl-none"
-                      }`}
-                    >
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-                      {msg.sender === "ai" && msg.explanation && (
-                         <details className="mt-2">
-                           <summary className="text-xs text-muted-foreground cursor-pointer hover:underline font-medium">View Explanation</summary>
-                           <p className="text-xs text-muted-foreground/80 mt-1 italic bg-muted/50 p-2 rounded-md">{msg.explanation}</p>
-                         </details>
+        {/* Chat Interface Card - Conditionally rendered and takes remaining space */}
+        {isInitialDesignGenerated && (
+          <Card className="shadow-xl flex flex-col flex-grow bg-card rounded-lg min-h-[300px] md:min-h-0 overflow-hidden">
+            <CardHeader className="border-b border-border">
+              <CardTitle className="text-2xl font-semibold flex items-center">
+                <MessageSquare className="mr-2 h-6 w-6 text-primary" /> Refinement Chat
+              </CardTitle>
+              <CardDescription>Discuss and iterate on the architecture design with the AI.</CardDescription>
+            </CardHeader>
+            <ScrollArea className="flex-grow p-4" id="chat-scroll-area">
+              <AnimatePresence>
+                {messages.map((msg) => (
+                  <motion.div
+                    key={msg.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className={`flex mb-4 ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                  >
+                    <div className={`flex items-end gap-2 max-w-[85%]`}>
+                      {msg.sender === 'ai' && (
+                        <Avatar className="h-8 w-8 self-start shadow-sm">
+                          <AvatarImage src="https://picsum.photos/seed/ai-arch/40/40" alt="AI Avatar" data-ai-hint="brain circuit" />
+                          <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
+                        </Avatar>
+                      )}
+                      <div
+                        className={`rounded-xl p-3 shadow-md ${
+                          msg.sender === "user"
+                            ? "bg-primary text-primary-foreground rounded-br-none"
+                            : "bg-secondary text-secondary-foreground rounded-bl-none"
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                        {msg.sender === "ai" && msg.explanation && (
+                           <details className="mt-2">
+                             <summary className="text-xs text-muted-foreground cursor-pointer hover:underline font-medium">View Explanation</summary>
+                             <p className="text-xs text-muted-foreground/80 mt-1 italic bg-muted/50 p-2 rounded-md">{msg.explanation}</p>
+                           </details>
+                        )}
+                      </div>
+                       {msg.sender === 'user' && (
+                        <Avatar className="h-8 w-8 self-start shadow-sm">
+                          <AvatarImage src="https://picsum.photos/seed/usr-avatar/40/40" alt="User Avatar" data-ai-hint="person icon" />
+                          <AvatarFallback className="bg-accent text-accent-foreground">U</AvatarFallback>
+                        </Avatar>
                       )}
                     </div>
-                     {msg.sender === 'user' && (
-                      <Avatar className="h-8 w-8 self-start shadow-sm">
-                        <AvatarImage src="https://picsum.photos/seed/usr-avatar/40/40" alt="User Avatar" data-ai-hint="person icon" />
-                        <AvatarFallback className="bg-accent text-accent-foreground">U</AvatarFallback>
-                      </Avatar>
-                    )}
-                  </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+              {isLoading && messages.length > 0 && messages[messages.length-1].sender === 'user' && (
+                 <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex justify-start mb-4"
+                  >
+                    <div className="flex items-end gap-2">
+                        <Avatar className="h-8 w-8 self-start shadow-sm">
+                          <AvatarImage src="https://picsum.photos/seed/ai-arch/40/40" alt="AI Avatar" data-ai-hint="brain circuit" />
+                          <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
+                        </Avatar>
+                        <div className="rounded-xl p-3 bg-secondary text-secondary-foreground shadow-md rounded-bl-none">
+                            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        </div>
+                    </div>
                 </motion.div>
-              ))}
-            </AnimatePresence>
-            {isLoading && messages.length > 0 && messages[messages.length-1].sender === 'user' && (
-               <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex justify-start mb-4"
-                >
-                  <div className="flex items-end gap-2">
-                      <Avatar className="h-8 w-8 self-start shadow-sm">
-                        <AvatarImage src="https://picsum.photos/seed/ai-arch/40/40" alt="AI Avatar" data-ai-hint="brain circuit" />
-                        <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
-                      </Avatar>
-                      <div className="rounded-xl p-3 bg-secondary text-secondary-foreground shadow-md rounded-bl-none">
-                          <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      </div>
-                  </div>
-              </motion.div>
-            )}
-          </ScrollArea>
-          <CardFooter className="p-4 border-t border-border bg-background/50 rounded-b-lg">
-            <form onSubmit={handleChatSubmit} className="flex w-full items-center gap-3">
-              <Input
-                type="text"
-                placeholder={currentArchitecture ? "e.g., Add a caching layer..." : "Generate initial design first"}
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="flex-grow bg-card border-input focus:ring-primary rounded-md shadow-sm text-sm py-2.5"
-                disabled={!currentArchitecture || isLoading}
-                aria-label="Chat input for architecture refinement"
-              />
-              <Button type="submit" size="icon" disabled={!currentArchitecture || isLoading || !chatInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md w-10 h-10">
-                <Send className="h-5 w-5" />
-                <span className="sr-only">Send message</span>
-              </Button>
-            </form>
-          </CardFooter>
-        </Card>
+              )}
+            </ScrollArea>
+            <CardFooter className="p-4 border-t border-border bg-background/50 rounded-b-lg">
+              <form onSubmit={handleChatSubmit} className="flex w-full items-center gap-3">
+                <Input
+                  type="text"
+                  placeholder={currentArchitecture ? "e.g., Add a caching layer..." : "Generate initial design first"}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  className="flex-grow bg-card border-input focus:ring-primary rounded-md shadow-sm text-sm py-2.5"
+                  disabled={!currentArchitecture || isLoading}
+                  aria-label="Chat input for architecture refinement"
+                />
+                <Button type="submit" size="icon" disabled={!currentArchitecture || isLoading || !chatInput.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md w-10 h-10">
+                  <Send className="h-5 w-5" />
+                  <span className="sr-only">Send message</span>
+                </Button>
+              </form>
+            </CardFooter>
+          </Card>
+        )}
       </div>
 
       {/* Right Panel: Architecture Visualization */}
@@ -546,4 +505,3 @@ export function ArchitectureRefinementPage() {
     </div>
   );
 }
-
